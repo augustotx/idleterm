@@ -152,4 +152,5 @@ void helpmsg()
     cout << "OPTIONAL ARGUMENTS\n";
     cout << "  -c      Color: red, green, yellow, blue, magenta [default], cyan, white\n";
     cout << "  -s      Speed: from 1 to 100 [default], in percentage\n";
+    cout << "  -l      Character list: e.g. \"!@#$%&*<>()\" [default]";
 }
