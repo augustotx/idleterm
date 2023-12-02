@@ -1,8 +1,7 @@
-#define COLOR_GREEN "\033[32m"
-
-
 using namespace std;
-int setrefreshrate(double *);
-void program(int, int, double, string, int *, int *, string);
-string getBrightColorCode(const string&);
+void program(int, int, int, string, int *, int *, int);
+string getBrightColorCode(const string &);
 void helpmsg();
+int getttysize(int *, int *);
+void signalHandler(int);
+int getBrightColorPair(const string &);

@@ -2,44 +2,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <X11/Xlib.h>
-#include <X11/extensions/Xrandr.h>
 #include <iostream>
-
+#include <cstdlib>
+#include <csignal>
+#include <ncurses.h>
 #include "func.h"
 
 using namespace std;
 int main(int argc, char *argv[])
 {
-    string characters;
-    characters = "!@#$%&*<>()";
-    int *terminaltype = (int *)malloc(0);
-
-    int *cols = (int *)malloc(0);
-    int *lines = (int *)malloc(0);
-    *cols = 80;
-    *lines = 24;
-#ifdef TIOCGSIZE
-    struct ttysize ts;
-    ioctl(STDIN_FILENO, TIOCGSIZE, &ts);
-    *cols = ts.ts_cols;
-    *lines = ts.ts_lines;
-    *terminaltype = 0;
-#elif defined(TIOCGWINSZ)
-    struct winsize ts;
-    ioctl(STDIN_FILENO, TIOCGWINSZ, &ts);
-    *cols = ts.ws_col;
-    *lines = ts.ws_row;
-    *terminaltype = 1;
-#endif
-
-    double *refreshrate = (double *)malloc(0.0);
-    *refreshrate = 60.0;
-    if (terminaltype)
-    {
-        setrefreshrate(refreshrate);
-    }
+    setlocale(LC_ALL, "en_US.UTF-8");
+    string characters = "!@#$%&*<>()";
+    int cols = 80;
+    int lines = 24;
     int speed = 50;
+    getttysize(&lines, &cols);
     string color_choice = "";
     for (int i = 1; i < argc; ++i)
     {
@@ -66,29 +43,28 @@ int main(int argc, char *argv[])
             return 0;
         }
     }
-
+    string color_ANSI;
+    int color_pair_int;
     if (!color_choice.empty())
     {
-        color_choice = getBrightColorCode(color_choice);
+        color_ANSI = getBrightColorCode(color_choice);
     }
     else
     {
-        color_choice = getBrightColorCode("magenta");
+        color_ANSI = getBrightColorCode("magenta");
+        color_choice = "magenta";
     }
-    if (color_choice == "invalid")
+    if (color_ANSI == "invalid")
     {
         printf("Invalid color (-h for help.)");
         return 2;
     }
+    color_pair_int = getBrightColorPair(color_choice);
+    speed *= 2;
+    int occupiedcols[cols];
+    int occupiedlines[lines];
+    signal(SIGINT, signalHandler);
+    program(cols, lines, speed, characters, occupiedcols, occupiedlines, color_pair_int);
 
-    *refreshrate = (double)speed * (*refreshrate) * 0.01;
-    int occupiedcols[*cols];
-    int occupiedlines[*lines];
-    program(*cols, *lines, *refreshrate, characters, occupiedcols, occupiedlines, color_choice);
-
-    free(lines);
-    free(cols);
-    free(terminaltype);
-    free(refreshrate);
     return 0;
 }

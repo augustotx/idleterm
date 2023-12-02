@@ -2,63 +2,135 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <X11/Xlib.h>
-#include <X11/extensions/Xrandr.h>
 #include <iostream>
 #include <string>
 #include <cstdlib>
 #include <ctime>
+#include <csignal>
+#include <ncurses.h>
 using namespace std;
 
-int setrefreshrate(double *current_rate)
+int getBrightColorPair(const string &color_choice)
 {
-    Display *display = XOpenDisplay(NULL);
-    Window default_root_window = XDefaultRootWindow(display);
-
-    XRRScreenResources *screen_resources = XRRGetScreenResources(display, default_root_window);
-
-    RRMode active_mode_id = 0;
-    for (int i = 0; i < screen_resources->ncrtc; ++i)
+    if (color_choice == "grey")
     {
-        XRRCrtcInfo *crtc_info = XRRGetCrtcInfo(display, screen_resources, screen_resources->crtcs[i]);
-        // If None, then is not displaying the screen contents
-        if (crtc_info->mode != None)
-        {
-            active_mode_id = crtc_info->mode;
-        }
+        return 8;
     }
-
-    double active_rate = 0;
-    for (int i = 0; i < screen_resources->nmode; ++i)
+    else if (color_choice == "red")
     {
-        XRRModeInfo mode_info = screen_resources->modes[i];
-        if (mode_info.id == active_mode_id)
-        {
-            active_rate = (double)mode_info.dotClock / ((double)mode_info.hTotal * (double)mode_info.vTotal);
-        }
+        return 9;
     }
-
-    *current_rate = active_rate;
-    return 0;
+    else if (color_choice == "green")
+    {
+        return 10;
+    }
+    else if (color_choice == "yellow")
+    {
+        return 11;
+    }
+    else if (color_choice == "blue")
+    {
+        return 12;
+    }
+    else if (color_choice == "magenta")
+    {
+        return 13;
+    }
+    else if (color_choice == "cyan")
+    {
+        return 14;
+    }
+    else if (color_choice == "white")
+    {
+        return 15;
+    }
+    else
+    {
+        return 15;
+    }
 }
 
-void program(int cols, int lines, double refreshRate, string characters, int *occupiedcols, int *occupiedlines, string color)
+void program(int cols, int lines, int speed, string characters, int *occupiedcols, int *occupiedlines, int color)
 {
+    initscr();
+    noecho();
+    cbreak();
+    keypad(stdscr, TRUE);
+    curs_set(0);
+    nodelay(stdscr, TRUE);
+    start_color();
+    int default_bg_color;
+    if (use_default_colors() == OK)
+    {
+        default_bg_color = -1;
+    }
+    else
+    {
+        default_bg_color = COLOR_BLACK;
+    }
+    init_pair(getBrightColorPair("grey"), COLOR_BLACK, default_bg_color);
+    init_pair(getBrightColorPair("red"), COLOR_RED, default_bg_color);
+    init_pair(getBrightColorPair("green"), COLOR_GREEN, default_bg_color);
+    init_pair(getBrightColorPair("yellow"), COLOR_YELLOW, default_bg_color);
+    init_pair(getBrightColorPair("blue"), COLOR_BLUE, default_bg_color);
+    init_pair(getBrightColorPair("magenta"), COLOR_MAGENTA, default_bg_color);
+    init_pair(getBrightColorPair("cyan"), COLOR_CYAN, default_bg_color);
+    init_pair(getBrightColorPair("white"), COLOR_WHITE, default_bg_color);
+
+    
+
+    srand(time(0));
     char matrix[lines][cols];
     int i;
     int j;
     char c;
 
-    for (i = 0; i < lines; i++)
+    for (i = lines - 1; i > 0; i--)
     {
         for (j = 0; j < cols; j++)
         {
             matrix[i][j] = ' ';
         }
     }
-    while (true)
+    int key;
+    while ((key = getch()) != 'q')
     {
-
+        switch (key)
+        {
+        case 'h':
+        case KEY_LEFT:
+            if (speed >=6)
+            {
+                speed-=5;
+            }
+            break;
+        case 'l':
+        case KEY_RIGHT:
+            if (speed <=95)
+            {
+                speed+=5;
+            }
+            break;
+        case 'j':
+        case KEY_DOWN:
+            if (color > getBrightColorPair("grey"))
+            {
+                color--;
+            }
+            
+            break;
+        case 'k':
+        case KEY_UP:
+            if (color < getBrightColorPair("white"))
+            {
+                color++;
+            }
+            
+            break;
+        default:
+            // Handle other keys if needed
+            break;
+        }
         for (i = lines - 1; i > 0; i--)
         {
             for (j = 0; j < cols; j++)
@@ -84,20 +156,22 @@ void program(int cols, int lines, double refreshRate, string characters, int *oc
             }
         }
 
-        cout << color;
+        attron(COLOR_PAIR(color));
         for (i = 0; i < lines; i++)
         {
             for (j = 0; j < cols; j++)
             {
-                cout << matrix[i][j];
+                printw("%c", matrix[i][j]);
             }
-            cout << endl;
         }
-        cout << "\033[0m";
+        attroff(COLOR_PAIR(color));
 
-        usleep(static_cast<useconds_t>(1000000 / refreshRate));
-        system("clear");
+        refresh();
+        usleep(static_cast<useconds_t>(1000000 / speed));
+        clear();
     }
+
+    endwin();
 }
 
 string getBrightColorCode(const string &color_choice)
@@ -149,8 +223,43 @@ void helpmsg()
 {
     cout << "USAGE\n";
     cout << "  idleterm [-c COLOR] [-s SPEED]\n";
+    cout << "  speed can be changed with left/right arrow keys\n";
     cout << "OPTIONAL ARGUMENTS\n";
     cout << "  -c      Color: red, green, yellow, blue, magenta [default], cyan, white\n";
     cout << "  -s      Speed: from 1 to 100 [default], in percentage\n";
     cout << "  -l      Character list: e.g. \"!@#$%&*<>()\" [default]";
+}
+
+int getttysize(int *lines, int *cols)
+{
+    FILE *pipe = popen("stty size", "r");
+    if (!pipe)
+    {
+        cerr << "popen failed!" << endl;
+        return -1;
+    }
+
+    if (fscanf(pipe, "%d %d", lines, cols) != 2)
+    {
+        cerr << "Failed to read rows and columns from stty size command output." << endl;
+        return -1;
+    }
+
+    pclose(pipe);
+    return 0;
+}
+
+void signalHandler(int signal)
+{
+    switch (signal)
+    {
+    case SIGINT:
+        cout << "\033[0m";
+        endwin();
+        cout << "\033[2J\033[1;1H";
+        exit(signal);
+        break;
+    default:
+        break;
+    }
 }

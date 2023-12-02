@@ -1,1 +1,1 @@
-g++ *.cpp -o idleterm -lX11 -lXrandr
+g++ *.cpp -o idleterm -lncurses
