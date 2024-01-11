@@ -8,7 +8,17 @@
 #include <ctime>
 #include <csignal>
 #include <ncurses.h>
+#include <vector>
 using namespace std;
+
+int getttysize(int *lines, int *cols)
+{
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    *lines = w.ws_row;
+    *cols = w.ws_col;
+    return 0;
+}
 
 int getBrightColorPair(const string &color_choice)
 {
@@ -50,8 +60,16 @@ int getBrightColorPair(const string &color_choice)
     }
 }
 
-void program(int cols, int lines, int speed, string characters, int *occupiedcols, int *occupiedlines, int color)
+int lines, cols, program_running;
+
+void handle_winch(int sig)
 {
+    program_running = 0;
+}
+
+void program(int speed, string characters, int color)
+{
+    getttysize(&lines, &cols);
     initscr();
     noecho();
     cbreak();
@@ -80,7 +98,7 @@ void program(int cols, int lines, int speed, string characters, int *occupiedcol
     
 
     srand(time(0));
-    char matrix[lines][cols];
+    vector<vector<char>> matrix(lines, vector<char>(cols, ' '));
     int i;
     int j;
     char c;
@@ -92,9 +110,21 @@ void program(int cols, int lines, int speed, string characters, int *occupiedcol
             matrix[i][j] = ' ';
         }
     }
+    
     int key;
+    program_running = 1;
+    signal(SIGWINCH, handle_winch);
     while ((key = getch()) != 'q')
     {
+        if (program_running == 0)
+        {
+            endwin();
+            program(speed, characters, color);
+            break;
+        }
+        getttysize(&lines, &cols);
+        matrix.resize(lines, std::vector<char>(cols, ' '));
+
         switch (key)
         {
         case 'h':
@@ -141,14 +171,11 @@ void program(int cols, int lines, int speed, string characters, int *occupiedcol
 
         for (j = 0; j < cols; j++)
         {
-            occupiedlines[0] = 1;
-            occupiedcols[j] = 0;
 
             if (rand() % 10 == 1)
             {
                 c = characters[rand() % characters.size()];
                 matrix[0][j] = c;
-                occupiedcols[j] = 1;
             }
             else
             {
@@ -228,25 +255,6 @@ void helpmsg()
     cout << "  -c      Color: red, green, yellow, blue, magenta [default], cyan, white\n";
     cout << "  -s      Speed: from 1 to 100 [default], in percentage\n";
     cout << "  -l      Character list: e.g. \"!@#$%&*<>()\" [default]";
-}
-
-int getttysize(int *lines, int *cols)
-{
-    FILE *pipe = popen("stty size", "r");
-    if (!pipe)
-    {
-        cerr << "popen failed!" << endl;
-        return -1;
-    }
-
-    if (fscanf(pipe, "%d %d", lines, cols) != 2)
-    {
-        cerr << "Failed to read rows and columns from stty size command output." << endl;
-        return -1;
-    }
-
-    pclose(pipe);
-    return 0;
 }
 
 void signalHandler(int signal)

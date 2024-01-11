@@ -13,10 +13,7 @@ int main(int argc, char *argv[])
 {
     setlocale(LC_ALL, "en_US.UTF-8");
     string characters = "!@#$%&*<>()";
-    int cols = 80;
-    int lines = 24;
     int speed = 50;
-    getttysize(&lines, &cols);
     string color_choice = "";
     for (int i = 1; i < argc; ++i)
     {
@@ -61,10 +58,9 @@ int main(int argc, char *argv[])
     }
     color_pair_int = getBrightColorPair(color_choice);
     speed *= 2;
-    int occupiedcols[cols];
-    int occupiedlines[lines];
+    int *program_running = (int *)malloc(sizeof(int));
     signal(SIGINT, signalHandler);
-    program(cols, lines, speed, characters, occupiedcols, occupiedlines, color_pair_int);
-
+    program(speed, characters, color_pair_int);
+    free(program_running);
     return 0;
 }
